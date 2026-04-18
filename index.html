@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Team Store</title>
+  <script src="https://js.stripe.com/v3/"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:wght@300;400;500&display=swap');
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #F5F3EE;
+      --surface: #FFFFFF;
+      --text: #1A1A18;
+      --muted: #7A7870;
+      --accent: #1A1A18;
+      --accent-light: #F0EDE6;
+      --border: rgba(26,26,24,0.12);
+      --radius: 14px;
+    }
+    body { background: var(--bg); font-family: 'DM Sans', sans-serif; color: var(--text); }
+    .shop { max-width: 960px; margin: 0 auto; padding: 2rem 1.25rem; }
+
+    /* ── Header ── */
+    .shop-header { text-align: center; margin-bottom: 2.5rem; }
+    .shop-logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 2rem; letter-spacing: -0.04em; }
+    .shop-logo span { color: var(--muted); }
+    .shop-subtitle { font-size: 13px; color: var(--muted); margin-top: 4px; letter-spacing: 0.06em; text-transform: uppercase; }
+
+    /* ── Auth banner ── */
+    #auth-banner {
+      background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius);
+      padding: 2rem; text-align: center; margin-bottom: 2rem;
+    }
+    #auth-banner h2 { font-family: 'Syne', sans-serif; font-size: 1.3rem; margin-bottom: 0.5rem; }
+    #auth-banner p { font-size: 14px; color: var(--muted); margin-bottom: 1.25rem; }
+    .auth-form { display: flex; flex-direction: column; gap: 10px; max-width: 320px; margin: 0 auto; }
+    .auth-form input {
+      padding: 11px 14px; border: 0.5px solid var(--border); border-radius: 8px;
+      font-family: 'DM Sans', sans-serif; font-size: 14px; background: var(--bg); outline: none;
+    }
+    .auth-form input:focus { border-color: var(--accent); }
+    .btn-primary {
+      padding: 11px; background: var(--accent); color: #fff; border: none;
+      border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 14px;
+      font-weight: 500; cursor: pointer; transition: opacity 0.2s;
+    }
+    .btn-primary:hover { opacity: 0.85; }
+    .auth-msg { font-size: 13px; color: var(--muted); margin-top: 6px; }
+
+    /* ── User bar ── */
+    #user-bar {
+      display: none; justify-content: space-between; align-items: center;
+      background: var(--surface); border: 0.5px solid var(--border);
+      border-radius: var(--radius); padding: 12px 18px; margin-bottom: 2rem;
+      font-size: 13px;
+    }
+    #user-bar button {
+      background: none; border: 0.5px solid var(--border); border-radius: 6px;
+      padding: 5px 12px; cursor: pointer; font-size: 12px; color: var(--muted);
+    }
+
+    /* ── Tabs ── */
+    .tabs { display: flex; gap: 8px; margin-bottom: 2rem; flex-wrap: wrap; }
+    .tab {
+      padding: 8px 18px; border-radius: 100px; border: 0.5px solid var(--border);
+      background: var(--surface); font-size: 13px; font-weight: 500;
+      cursor: pointer; color: var(--muted); transition: all 0.2s;
+    }
+    .tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .tab:hover:not(.active) { background: var(--accent-light); color: var(--text); }
+
+    /* ── Products ── */
+    .products { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 16px; }
+    .product-card {
+      background: var(--surface); border-radius: var(--radius);
+      border: 0.5px solid var(--border); overflow: hidden;
+      transition: transform 0.2s;
+    }
+    .product-card:hover { transform: translateY(-3px); }
+    .product-img {
+      width: 100%; height: 160px; display: flex; align-items: center;
+      justify-content: center; font-size: 56px; background: var(--accent-light); position: relative;
+    }
+    .product-badge {
+      position: absolute; top: 10px; right: 10px; background: var(--accent); color: #fff;
+      font-size: 10px; font-weight: 500; padding: 3px 8px; border-radius: 100px;
+    }
+    .product-info { padding: 14px; }
+    .product-name { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 15px; margin-bottom: 4px; }
+    .product-price { font-size: 13px; color: var(--muted); }
+    .size-row { display: flex; gap: 5px; margin-top: 10px; flex-wrap: wrap; }
+    .size-btn {
+      padding: 4px 8px; border-radius: 6px; border: 0.5px solid var(--border);
+      font-size: 11px; font-weight: 500; cursor: pointer;
+      background: var(--surface); color: var(--text); transition: all 0.15s;
+    }
+    .size-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .add-btn {
+      width: 100%; margin-top: 12px; padding: 10px;
+      background: var(--accent); color: #fff; border: none; border-radius: 8px;
+      font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500;
+      cursor: pointer; transition: opacity 0.2s;
+    }
+    .add-btn:hover { opacity: 0.85; }
+    .add-btn:disabled { opacity: 0.35; cursor: default; }
+
+    /* ── Cart FAB ── */
+    .cart-fab {
+      position: fixed; bottom: 1.5rem; right: 1.5rem;
+      background: var(--accent); color: #fff; border: none; border-radius: 100px;
+      padding: 14px 22px; font-size: 14px; font-weight: 500;
+      font-family: 'DM Sans', sans-serif; cursor: pointer;
+      display: flex; align-items: center; gap: 8px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.18); z-index: 99;
+      transition: transform 0.15s;
+    }
+    .cart-fab:hover { transform: scale(1.04); }
+    .cart-fab.hidden { display: none; }
+    .cart-badge {
+      background: #E24B4A; color: #fff; border-radius: 100px;
+      font-size: 11px; font-weight: 700; padding: 2px 7px;
+    }
+
+    /* ── Cart panel ── */
+    .cart-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.3);
+      z-index: 100; display: none;
+    }
+    .cart-overlay.open { display: block; }
+    .cart-panel {
+      position: fixed; right: 0; top: 0; height: 100%; width: 340px;
+      background: var(--surface); border-left: 0.5px solid var(--border);
+      transform: translateX(100%); transition: transform 0.3s ease;
+      z-index: 101; display: flex; flex-direction: column;
+    }
+    .cart-panel.open { transform: translateX(0); }
+    .cart-header {
+      padding: 1.25rem; border-bottom: 0.5px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .cart-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 18px; }
+    .cart-close { background: none; border: none; cursor: pointer; font-size: 22px; color: var(--muted); }
+    .cart-items { flex: 1; overflow-y: auto; padding: 1rem; }
+    .cart-empty { text-align: center; color: var(--muted); font-size: 13px; padding: 2rem 0; }
+    .cart-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 0; border-bottom: 0.5px solid var(--border);
+    }
+    .cart-item-emoji {
+      font-size: 28px; width: 44px; height: 44px;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--accent-light); border-radius: 8px; flex-shrink: 0;
+    }
+    .cart-item-info { flex: 1; min-width: 0; }
+    .cart-item-name { font-size: 13px; font-weight: 500; }
+    .cart-item-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .cart-item-remove { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 18px; }
+    .cart-footer { padding: 1.25rem; border-top: 0.5px solid var(--border); }
+    .cart-total {
+      display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;
+    }
+    .cart-total-label { font-size: 13px; color: var(--muted); }
+    .cart-total-amount { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 22px; }
+
+    /* ── Stripe Payment Request Button ── */
+    #payment-request-button { margin-bottom: 10px; min-height: 48px; }
+    #payment-fallback {
+      display: none; width: 100%; padding: 14px;
+      background: #000; color: #fff; border: none; border-radius: 10px;
+      font-size: 15px; font-weight: 500; cursor: pointer; font-family: 'DM Sans', sans-serif;
+    }
+
+    /* ── Success overlay ── */
+    .success-overlay {
+      position: fixed; inset: 0; background: rgba(26,26,24,0.6);
+      z-index: 200; display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity 0.3s;
+    }
+    .success-overlay.show { opacity: 1; pointer-events: all; }
+    .success-card {
+      background: var(--surface); border-radius: 20px; padding: 2.5rem 2rem;
+      text-align: center; max-width: 320px; width: 90%;
+    }
+    .success-icon { font-size: 48px; margin-bottom: 1rem; }
+    .success-title { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 22px; margin-bottom: 8px; }
+    .success-sub { font-size: 14px; color: var(--muted); line-height: 1.6; }
+    .success-close {
+      margin-top: 1.5rem; padding: 10px 28px; background: var(--accent);
+      color: #fff; border: none; border-radius: 8px;
+      font-family: 'DM Sans', sans-serif; font-size: 14px; cursor: pointer;
+    }
+
+    @media (max-width: 480px) {
+      .cart-panel { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="shop">
+  <div class="shop-header">
+    <div class="shop-logo">TEAM<span>STORE</span></div>
+    <div class="shop-subtitle">Commandes équipe — Livraison groupée</div>
+  </div>
+
+  <!-- Auth banner (visible si non connecté) -->
+  <div id="auth-banner">
+    <h2>Connexion équipe</h2>
+    <p>Entre ton email professionnel pour accéder à la boutique.</p>
+    <div class="auth-form">
+      <input type="email" id="auth-email" placeholder="ton@email.com" />
+      <button class="btn-primary" onclick="sendMagicLink()">Recevoir le lien de connexion</button>
+      <div class="auth-msg" id="auth-msg"></div>
+    </div>
+  </div>
+
+  <!-- Barre utilisateur connecté -->
+  <div id="user-bar">
+    <span id="user-email-display">👤 connecté</span>
+    <button onclick="logout()">Déconnexion</button>
+  </div>
+
+  <div id="shop-content" style="display:none">
+    <div class="tabs">
+      <button class="tab active" onclick="filterCat('all', this)">Tout voir</button>
+      <button class="tab" onclick="filterCat('hoodie', this)">Hoodies</button>
+      <button class="tab" onclick="filterCat('tshirt', this)">T-Shirts</button>
+    </div>
+    <div class="products" id="products"></div>
+  </div>
+</div>
+
+<!-- Cart FAB -->
+<button class="cart-fab hidden" id="cartFab" onclick="openCart()">
+  🛒 Mon panier <span class="cart-badge" id="cartCount">0</span>
+</button>
+
+<!-- Cart overlay + panel -->
+<div class="cart-overlay" id="cartOverlay" onclick="closeCart()"></div>
+<div class="cart-panel" id="cartPanel">
+  <div class="cart-header">
+    <div class="cart-title">Mon panier</div>
+    <button class="cart-close" onclick="closeCart()">×</button>
+  </div>
+  <div class="cart-items" id="cartItems">
+    <div class="cart-empty">Ton panier est vide</div>
+  </div>
+  <div class="cart-footer">
+    <div class="cart-total">
+      <span class="cart-total-label">Total</span>
+      <span class="cart-total-amount" id="cartTotal">0,00 €</span>
+    </div>
+    <div id="payment-request-button"></div>
+    <button id="payment-fallback" onclick="fallbackPay()"> Payer par carte</button>
+  </div>
+</div>
+
+<!-- Success overlay -->
+<div class="success-overlay" id="successOverlay">
+  <div class="success-card">
+    <div class="success-icon">✅</div>
+    <div class="success-title">Commande confirmée !</div>
+    <div class="success-sub" id="successMsg">
+      Paiement traité avec succès. Tu recevras une confirmation par email.
+    </div>
+    <button class="success-close" onclick="closeSuccess()">Super, merci !</button>
+  </div>
+</div>
+
+<script type="module">
+  import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+  // ── CONFIG (à remplacer) ──────────────────────────────────────────────────
+  const SUPABASE_URL  = 'REMPLACE_PAR_TON_URL_SUPABASE'
+  const SUPABASE_KEY  = 'REMPLACE_PAR_TA_CLE_ANON_SUPABASE'
+  const STRIPE_PK     = 'REMPLACE_PAR_TA_CLE_PUBLIQUE_STRIPE'
+  const PAYMENT_URL   = 'REMPLACE_PAR_TON_URL_VERCEL/api/create-payment-intent'
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
+  const stripe   = Stripe(STRIPE_PK)
+
+  const SIZES    = ['XS','S','M','L','XL','2XL','3XL']
+  const PRODUCTS = [
+    { id: 1, name: 'Hoodie',                 emoji: '🧥', price: 45, category: 'hoodie', badge: 'Bestseller' },
+    { id: 2, name: 'Hoodie Zippé',           emoji: '🫡', price: 50, category: 'hoodie', badge: null },
+    { id: 3, name: 'T-Shirt',                emoji: '👕', price: 28, category: 'tshirt', badge: null },
+    { id: 4, name: 'T-Shirt Manche Longue',  emoji: '🩱', price: 35, category: 'tshirt', badge: 'New' },
+  ]
+
+  let cart = [], selectedSizes = {}, currentFilter = 'all', currentUser = null
+  let prButton = null
+
+  // ── Auth ──────────────────────────────────────────────────────────────────
+  window.sendMagicLink = async () => {
+    const email = document.getElementById('auth-email').value.trim()
+    const msg   = document.getElementById('auth-msg')
+    if (!email) { msg.textContent = 'Entre ton email.'; return }
+    const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: location.href } })
+    msg.textContent = error ? '❌ Erreur : ' + error.message : '✅ Lien envoyé ! Vérifie ta boîte mail.'
+  }
+
+  window.logout = async () => {
+    await supabase.auth.signOut()
+    location.reload()
+  }
+
+  supabase.auth.onAuthStateChange((event, session) => {
+    currentUser = session?.user ?? null
+    if (currentUser) {
+      document.getElementById('auth-banner').style.display   = 'none'
+      document.getElementById('user-bar').style.display      = 'flex'
+      document.getElementById('shop-content').style.display  = 'block'
+      document.getElementById('user-email-display').textContent = '👤 ' + currentUser.email
+      renderProducts()
+    }
+  })
+
+  // ── Products ──────────────────────────────────────────────────────────────
+  window.filterCat = (cat, el) => {
+    currentFilter = cat
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'))
+    el.classList.add('active')
+    renderProducts()
+  }
+
+  function renderProducts() {
+    const list = currentFilter === 'all' ? PRODUCTS : PRODUCTS.filter(p => p.category === currentFilter)
+    document.getElementById('products').innerHTML = list.map(p => `
+      <div class="product-card">
+        <div class="product-img">
+          ${p.emoji}
+          ${p.badge ? `<div class="product-badge">${p.badge}</div>` : ''}
+        </div>
+        <div class="product-info">
+          <div class="product-name">${p.name}</div>
+          <div class="product-price">${p.price},00 €</div>
+          <div class="size-row">
+            ${SIZES.map(s => `<button class="size-btn ${selectedSizes[p.id]===s?'active':''}" onclick="selectSize(${p.id},'${s}')">${s}</button>`).join('')}
+          </div>
+          <button class="add-btn" onclick="addToCart(${p.id})" ${selectedSizes[p.id]?'':'disabled'}>
+            ${selectedSizes[p.id] ? '+ Ajouter au panier' : 'Choisir une taille'}
+          </button>
+        </div>
+      </div>`).join('')
+  }
+
+  window.selectSize = (id, s) => { selectedSizes[id] = s; renderProducts() }
+
+  window.addToCart = (id) => {
+    const p = PRODUCTS.find(x => x.id === id)
+    const s = selectedSizes[id]; if (!s) return
+    const key = `${id}-${s}`
+    const ex  = cart.find(i => i.key === key)
+    ex ? ex.qty++ : cart.push({ key, product: p, size: s, qty: 1 })
+    delete selectedSizes[id]
+    renderProducts(); updateCart()
+  }
+
+  window.removeFromCart = (key) => { cart = cart.filter(i => i.key !== key); updateCart() }
+
+  // ── Cart UI ───────────────────────────────────────────────────────────────
+  function updateCart() {
+    const count = cart.reduce((s,i) => s + i.qty, 0)
+    const total = cart.reduce((s,i) => s + i.product.price * i.qty, 0)
+    document.getElementById('cartCount').textContent = count
+    document.getElementById('cartTotal').textContent  = total.toFixed(2).replace('.',',') + ' €'
+    document.getElementById('cartFab').classList.toggle('hidden', count === 0)
+
+    document.getElementById('cartItems').innerHTML = cart.length === 0
+      ? '<div class="cart-empty">Ton panier est vide</div>'
+      : cart.map(i => `
+          <div class="cart-item">
+            <div class="cart-item-emoji">${i.product.emoji}</div>
+            <div class="cart-item-info">
+              <div class="cart-item-name">${i.product.name}</div>
+              <div class="cart-item-meta">Taille ${i.size} · Qté ${i.qty} · ${(i.product.price*i.qty).toFixed(2).replace('.',',')} €</div>
+            </div>
+            <button class="cart-item-remove" onclick="removeFromCart('${i.key}')">×</button>
+          </div>`).join('')
+
+    setupStripeButton(total)
+  }
+
+  window.openCart  = () => { document.getElementById('cartPanel').classList.add('open');  document.getElementById('cartOverlay').classList.add('open') }
+  window.closeCart = () => { document.getElementById('cartPanel').classList.remove('open'); document.getElementById('cartOverlay').classList.remove('open') }
+
+  // ── Stripe Payment Request (Apple Pay / Google Pay) ───────────────────────
+  function setupStripeButton(total) {
+    if (total === 0) return
+    const pr = stripe.paymentRequest({
+      country: 'FR', currency: 'eur',
+      total: { label: 'Team Store', amount: Math.round(total * 100) },
+      requestPayerName: true, requestPayerEmail: true,
+    })
+    pr.canMakePayment().then(result => {
+      const btn = document.getElementById('payment-request-button')
+      const fallback = document.getElementById('payment-fallback')
+      btn.innerHTML = ''
+      if (result) {
+        const el = stripe.elements()
+        const prBtn = el.create('paymentRequestButton', { paymentRequest: pr, style: { paymentRequestButton: { height: '52px' } } })
+        prBtn.mount('#payment-request-button')
+        fallback.style.display = 'none'
+      } else {
+        btn.style.display = 'none'
+        fallback.style.display = 'block'
+      }
+    })
+
+    pr.on('paymentmethod', async (ev) => {
+      const res = await fetch(PAYMENT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: Math.round(total * 100), cart, userId: currentUser?.id })
+      })
+      const { clientSecret } = await res.json()
+      const { error } = await stripe.confirmCardPayment(clientSecret, { payment_method: ev.paymentMethod.id }, { handleActions: false })
+      if (error) { ev.complete('fail'); return }
+      ev.complete('success')
+      await saveOrder(total)
+      closeCart(); showSuccess()
+    })
+  }
+
+  window.fallbackPay = async () => {
+    const total = cart.reduce((s,i) => s + i.product.price * i.qty, 0)
+    await saveOrder(total); closeCart(); showSuccess()
+  }
+
+  // ── Save order to Supabase ────────────────────────────────────────────────
+  async function saveOrder(total) {
+    await supabase.from('orders').insert({
+      user_id:    currentUser?.id,
+      user_email: currentUser?.email,
+      items:      cart,
+      total_eur:  total,
+      status:     'paid',
+    })
+    cart = []; updateCart()
+  }
+
+  function showSuccess() {
+    document.getElementById('successOverlay').classList.add('show')
+  }
+  window.closeSuccess = () => {
+    document.getElementById('successOverlay').classList.remove('show')
+  }
+</script>
+</body>
+</html>
